@@ -8,18 +8,61 @@ public class GenerateSphere : MonoBehaviour {
 	private float size = 15;
 	ArrayList dots = new ArrayList();
 	private Mesh mesh;
+	int recursionLevel = 4;
+	float radius = 20f;
 
 	void Start () {
 		mesh = CreateIcoSphere ();
 
 		// Place objects on each vertice and rotate to face center
 
+		float perlinX = Random.Range (0f, 9999f);
+		float perlinY = Random.Range (0f, 9999f);
+		float perlinScaleX = 10f;
+		float perlinScaleY = 20f;
+
 		foreach(Vector3 v in mesh.vertices){
 			GameObject g = (GameObject)GameObject.Instantiate(prefab, v, Quaternion.identity);
 			g.transform.parent = transform;
 			g.transform.localRotation = Quaternion.LookRotation (transform.position - g.transform.position);
+
+			// Generate some terrain using perlin noise
+			// http://docs.unity3d.com/ScriptReference/Mathf.PerlinNoise.html
+
+			Vector2 polar = CartesianToPolar(g.transform.position);
+			float noise = Mathf.PerlinNoise(perlinX + Normalize(polar.x, -90, 90) * perlinScaleX, perlinY + Normalize (polar.y, -180, 180) * perlinScaleY);
+			// g.transform.localScale = new Vector3(1f, 1f, noise * 20f);
+			// Debug.Log(noise);
+			if(noise > 0.5f){
+				g.renderer.enabled = false;
+			}
 		}
 	}
+
+	void Update (){
+		transform.Rotate (Vector3.up * Time.deltaTime * 5f);
+	}
+
+	private float Normalize(float num, float min, float max){
+		return (num - min) / (max - min);
+	}
+
+	// Below code borrowed and converted to C# from a stack overflow answer:
+	// @ http://answers.unity3d.com/questions/189724/polar-spherical-coordinates-to-xyz-and-vice-versa.html
+
+	private Vector2 CartesianToPolar(Vector3 point){
+		Vector2 polar = new Vector2();
+
+		polar.y = Mathf.Atan2(point.x, point.y);
+
+		float xzLen = (new Vector2(point.x, point.z)).magnitude;
+		polar.x = Mathf.Atan2 (-point.y, xzLen);
+
+		polar *= Mathf.Rad2Deg;
+
+		return polar;
+	}
+
 
 	// Below code lifted from the Unity wiki
 	// @ http://wiki.unity3d.com/index.php/ProceduralPrimitives
@@ -82,9 +125,6 @@ public class GenerateSphere : MonoBehaviour {
 		List<Vector3> vertList = new List<Vector3>();
 		Dictionary<long, int> middlePointIndexCache = new Dictionary<long, int>();
 		int index = 0;
-		
-		int recursionLevel = 3;
-		float radius = 20f;
 		
 		// create 12 vertices of a icosahedron
 		float t = (1f + Mathf.Sqrt(5f)) / 2f;
