@@ -2,45 +2,134 @@
 using System.Collections;
 using System.Collections.Generic;
 
+// TODO: Destroy all lines and materials!!!
+
 public class GenerateSphere : MonoBehaviour {
 	public GameObject prefab;
 	private int count = 128;
 	private float size = 15;
 	ArrayList dots = new ArrayList();
 	private Mesh mesh;
-	int recursionLevel = 4;
+	int recursionLevel = 3;
 	float radius = 20f;
+	float seaLevel = -0.25f;
+	public Material seaMaterial;
+	public Material landMaterial;
 
 	void Start () {
 		mesh = CreateIcoSphere ();
 
-		// Place objects on each vertice and rotate to face center
+		// Generate a list of mesh vertices using simplex noise
 
-		float perlinX = Random.Range (0f, 9999f);
-		float perlinY = Random.Range (0f, 9999f);
-		float perlinScaleX = 10f;
-		float perlinScaleY = 20f;
+		List<int> points = new List<int> ();
+
+		for(int ii = 0; ii < mesh.vertices.Length; ii++){
+			Vector3 v = mesh.vertices[ii];
+			float noise = (float)SimplexNoise.noise (v.x, v.y, v.z);
+			if(noise > seaLevel){
+				points.Add (ii);
+			}
+		}
+
+		for(int ii = 0; ii <= mesh.triangles.Length - 3; ii += 3){
+
+			// Check whether all three points of the triangle are in our list of noise generated points
+
+			Vector3 p1 = mesh.vertices[mesh.triangles[ii]];
+			Vector3 p2 = mesh.vertices[mesh.triangles[ii + 1]];
+			Vector3 p3 = mesh.vertices[mesh.triangles[ii + 2]];
+			
+			if(points.IndexOf(mesh.triangles[ii]) > -1 && points.IndexOf (mesh.triangles[ii + 1]) > -1 && points.IndexOf (mesh.triangles[ii + 2]) > -1){
+				DrawLine (p1, p2, Color.red);
+				DrawLine (p2, p3, Color.red);
+				DrawLine (p3, p1, Color.red);
+				CreateTriangle (p1, p2, p3, landMaterial);
+
+
+
+				// Vector3 middle = GetMiddleOfTriangle(p1, p2, p3);
+				// GameObject g = (GameObject)GameObject.Instantiate(prefab, middle, Quaternion.identity);
+				// g.transform.parent = transform;
+				// g.transform.localRotation = Quaternion.LookRotation (transform.position - g.transform.position);
+			}else{
+				CreateTriangle (p1, p2, p3, seaMaterial);
+			}
+		}
+		
+		// Draw lines between nodes
+
+		float threshold = 12f;
 
 		foreach(Vector3 v in mesh.vertices){
-			GameObject g = (GameObject)GameObject.Instantiate(prefab, v, Quaternion.identity);
-			g.transform.parent = transform;
-			g.transform.localRotation = Quaternion.LookRotation (transform.position - g.transform.position);
-
-			// Generate some terrain using perlin noise
-			// http://docs.unity3d.com/ScriptReference/Mathf.PerlinNoise.html
-
-			Vector2 polar = CartesianToPolar(g.transform.position);
-			float noise = Mathf.PerlinNoise(perlinX + Normalize(polar.x, -90, 90) * perlinScaleX, perlinY + Normalize (polar.y, -180, 180) * perlinScaleY);
-			// g.transform.localScale = new Vector3(1f, 1f, noise * 20f);
-			// Debug.Log(noise);
-			if(noise > 0.5f){
-				g.renderer.enabled = false;
+			foreach(Vector3 v2 in mesh.vertices){
+				if(v != v2){
+					float distance = Vector3.Distance(v, v2);
+					if(distance < threshold){
+						// DrawLine(v, v2, Color.yellow);
+					}
+				}
 			}
 		}
 	}
 
-	void Update (){
-		transform.Rotate (Vector3.up * Time.deltaTime * 5f);
+	void DrawLine(Vector3 a, Vector3 b, Color c){
+		GameObject g = new GameObject();
+		g.transform.parent = transform;
+		LineRenderer l = g.AddComponent<LineRenderer>();
+		l.useWorldSpace = true;
+		l.SetVertexCount(2);
+		l.SetPosition(0, a);
+		l.SetPosition(1, b);
+		l.SetWidth(0.1f, 0.1f);
+		l.material = new Material (Shader.Find("Particles/Additive"));
+		l.material.color = Color.red;
+	}
+	
+	ArrayList GetTrianglesForVertex(int vIndex){
+		ArrayList tris = new ArrayList();
+		for(int ii = 0; ii < mesh.triangles.Length - 2; ii += 3){
+			if(mesh.triangles[ii] == vIndex || mesh.triangles[ii + 1] == vIndex || mesh.triangles[ii + 2] == vIndex){
+				tris.Add (new [] {mesh.triangles[ii], mesh.triangles[ii + 1], mesh.triangles[ii + 2]});
+			}
+		}
+
+		return tris;
+	}
+
+	private void CreateTriangle(Vector3 p1, Vector3 p2, Vector3 p3, Material mat){
+		GameObject g = (GameObject)GameObject.Instantiate (prefab, transform.position, Quaternion.identity);
+		g.transform.parent = transform;
+		g.AddComponent ("MeshFilter");
+		g.AddComponent ("MeshRenderer");
+		g.AddComponent ("MeshCollider");
+		Mesh m = (g.GetComponent<MeshFilter> ()).mesh;
+
+		m.Clear ();
+		m.vertices = new Vector3[] {p1, p2, p3};
+
+		// m.uv = new []{new Vector2 (0, 0), new Vector2 (0, 1), new Vector2 (1, 1)};
+		m.uv = new Vector2[ m.vertices.Length ];
+		m.triangles = new int[]{0, 1, 2};
+
+		
+		m.RecalculateBounds();
+		m.RecalculateNormals ();
+		m.Optimize();
+
+		MeshCollider c = (MeshCollider)g.GetComponent<MeshCollider> ();
+		c.sharedMesh = m;
+
+		g.renderer.material = mat;
+
+		// g.transform.parent = transform;
+	}
+
+	private Vector3 GetNormalOfTriangle(Vector3 p1, Vector3 p2, Vector3 p3){
+		return Vector3.Cross(p2 - p1, p2 - p3).normalized;
+	}
+
+	private Vector3 GetMiddleOfTriangle(Vector3 p1, Vector3 p2, Vector3 p3){
+		return ((p1 + p2 + p3) / 3);
 	}
 
 	private float Normalize(float num, float min, float max){
@@ -121,6 +210,7 @@ public class GenerateSphere : MonoBehaviour {
 		MeshFilter filter = gameObject.AddComponent< MeshFilter >();
 		Mesh mesh = filter.mesh;
 		mesh.Clear();
+		gameObject.GetComponent<MeshRenderer> ().enabled = false;
 		
 		List<Vector3> vertList = new List<Vector3>();
 		Dictionary<long, int> middlePointIndexCache = new Dictionary<long, int>();
@@ -217,6 +307,7 @@ public class GenerateSphere : MonoBehaviour {
 		
 		mesh.RecalculateBounds();
 		mesh.Optimize();
+
 		return mesh;
 	}
 }
