@@ -121,6 +121,8 @@ public class GenerateSphere : MonoBehaviour {
 
 		g.renderer.material = mat;
 
+		g.GetComponent<Triangle> ().pos = GetMiddleOfTriangle (p1, p2, p3);
+
 		// g.transform.parent = transform;
 	}
 

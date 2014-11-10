@@ -4,6 +4,7 @@ using System.Collections;
 public class Triangle : MonoBehaviour {
 
 	public Material highlightMaterial;
+	public Vector3 pos;
 
 	// Use this for initialization
 	void Start () {
@@ -20,6 +21,7 @@ public class Triangle : MonoBehaviour {
 				// hit.collider.renderer.enabled = false;
 				if(hit.collider.gameObject == gameObject){
 					renderer.material = highlightMaterial;
+					Camera.main.SendMessage("RotateToLookAt", pos);
 				}
 			}
 		}

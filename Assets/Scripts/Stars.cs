@@ -13,6 +13,7 @@ public class Stars : MonoBehaviour {
 		for(int ii = 0; ii < num; ii++){
 			GameObject g = (GameObject)GameObject.Instantiate (prefab);
 			g.transform.position = Random.insideUnitSphere * Random.Range(minRadius, maxRadius);
+			g.transform.parent = transform;
 		}
 	}
 	

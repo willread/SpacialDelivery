@@ -5,6 +5,9 @@ public class CameraDrag : MonoBehaviour {
 
 	private float dragSpeed = 0.25f;
 	private Vector3 dragOrigin;
+	private float spinSpeed = 100f;
+	private Vector3 spinTarget = Vector3.zero;
+	private float spinThreshold = 1.5f;
 
 	void Start () {
 	
@@ -27,5 +30,15 @@ public class CameraDrag : MonoBehaviour {
 		}
 
 		Vector2 diff = dragOrigin - Input.mousePosition;
+
+		if(spinTarget != Vector3.zero){
+			if(Vector3.Distance(Camera.main.transform.position, spinTarget) > spinThreshold){
+				Camera.main.transform.RotateAround (Vector3.zero, -Vector3.Cross (spinTarget, Camera.main.transform.position), spinSpeed * Time.deltaTime);
+			}
+		}
+	}
+
+	public void RotateToLookAt (Vector3 pos) {
+		spinTarget = pos.normalized * Camera.main.transform.position.magnitude;
 	}
 }
